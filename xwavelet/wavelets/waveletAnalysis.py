@@ -99,9 +99,9 @@ plt.xlim(xlim[:])
 # 95# significance contour, levels at -99 (fake) and 1 (95# signif)
 plt.contour(time, period, sig95, [-99, 1], colors='k')
 # cone-of-influence, anything "below" is dubious
-plt.plot(time, coi, 'k')
+plt.plot(time, coi[0:len(time)], 'k')
 # format y-scale
-plt3.set_yscale('log', basey=2, subsy=None)
+plt3.set_yscale('log', base=2, subs=None)
 plt.ylim([np.min(period), np.max(period)])
 ax = plt.gca().yaxis
 ax.set_major_formatter(ticker.ScalarFormatter())
@@ -121,7 +121,7 @@ plt.xlabel('Power (\u00B0C$^2$)')
 plt.title('c) Global Wavelet Spectrum')
 plt.xlim([0, 1.25 * np.max(global_ws)])
 # format y-scale
-plt4.set_yscale('log', basey=2, subsy=None)
+plt4.set_yscale('log', base=2, subs=None)
 plt.ylim([np.min(period), np.max(period)])
 ax = plt.gca().yaxis
 ax.set_major_formatter(ticker.ScalarFormatter())
