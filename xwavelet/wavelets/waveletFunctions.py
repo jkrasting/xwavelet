@@ -95,6 +95,10 @@ __author__ = 'Evgeniya Predybaylo, Michael von Papen'
 #        Periods greater than this are subject to edge effects.
 
 def wavelet(Y, dt, pad=0, dj=-1, s0=-1, J1=-1, mother=-1, param=-1, freq=None):
+
+    #....initialize `period` variable to None
+    period = None
+
     n1 = len(Y)
 
     if s0 == -1:
@@ -117,7 +121,7 @@ def wavelet(Y, dt, pad=0, dj=-1, s0=-1, J1=-1, mother=-1, param=-1, freq=None):
     #....construct wavenumber array used in transform [Eqn(5)]
     kplus = np.arange(1, n / 2 + 1)
     kplus = (kplus * 2 * np.pi / (n * dt))
-    kminus = (-(kplus[0:(n-1)/2])[::-1])
+    kminus = (-(kplus[0:int((n-1)/2)])[::-1])
     k = np.concatenate(([0.], kplus, kminus))
 
     #....compute FFT of the (padded) time series
@@ -142,6 +146,7 @@ def wavelet(Y, dt, pad=0, dj=-1, s0=-1, J1=-1, mother=-1, param=-1, freq=None):
     if freq is None:
         j = np.arange(0, J1+1)
         scale = s0 * 2. ** (j * dj)
+        period = scale
     else:
         scale = 1./(fourier_factor*freq)
         period = 1./freq
