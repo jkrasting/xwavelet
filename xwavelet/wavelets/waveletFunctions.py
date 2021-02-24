@@ -161,6 +161,10 @@ def wavelet(Y, dt, pad=0, dj=-1, s0=-1, J1=-1, mother=-1, param=-1, freq=None):
     coi = coi * dt * np.concatenate((
         np.insert(np.arange((n1 + 1) / 2 - 1), [0], [1E-5]),
         np.insert(np.flipud(np.arange(0, n1 / 2 - 1)), [-1], [1E-5])))
+
+    # ensure that the cone of influence has the same shape as time
+    coi = coi[0:len(Y)] if (len(coi) > len(Y)) else coi
+
     wave = wave[:, :n1]  # get rid of padding before returning
 
     return wave, period, scale, coi
