@@ -94,7 +94,7 @@ __author__ = 'Evgeniya Predybaylo, Michael von Papen'
 #        at that particular time.
 #        Periods greater than this are subject to edge effects.
 
-def wavelet(Y, dt, pad=0, dj=-1, s0=-1, J1=-1, mother=-1, param=-1, freq=None):
+def wavelet(Y, dt=1., pad=0, dj=-1, s0=-1, J1=-1, mother=-1, param=-1, freq=None):
 
     #....initialize `period` variable to None
     period = None
