@@ -53,7 +53,15 @@ def infer_time_freq(arr, dim="time"):
 
 
 def wavelet(
-    arr, dim="time", dt=None, pad=True, dj=0.25, pow2=7, s0=None, mother="MORLET"
+    arr,
+    dim="time",
+    dt=None,
+    pad=True,
+    dj=0.25,
+    pow2=7,
+    s0=None,
+    mother="MORLET",
+    scaled=False,
 ):
     """xarray wrapper for Torrence and Campo wavelet analysis
 
@@ -75,6 +83,10 @@ def wavelet(
         Starting timescale, otherwise inferred from time axis, by default None
     mother : str, optional
         Wavelet transform of "MORLET", "PAUL", or "DOG", by default "MORLET"
+    scaled : boolean, optional
+        Rescale the wavelet coefficents so that the double integral is
+        the total energy (varaiance multiplied by total time).
+        Default is False
 
     Returns
     -------
@@ -127,6 +139,21 @@ def wavelet(
     period = scale
 
     result = result.assign_coords({"period": period})
+
+    # Rescale the wavelet coefficents so that the double integral
+    # is the total energy (varaiance multiplied by total time)
+    if scaled is True:
+
+        if mother != "MORLET":
+            raise ValueError(
+                "Only the MORLET wavelet base can " + "be scaled in this impementation"
+            )
+
+        # empirically-derived reconstruction factor
+        c_delta = 0.776
+
+        scale = xr.DataArray(scale, dims=("period"))
+        result = result * np.sqrt(dt / (c_delta * scale))
 
     return result
 
