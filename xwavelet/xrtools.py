@@ -31,6 +31,20 @@ def detrend_array(arr, dim="time", deg=1):
     return arr - fitted
 
 
+def isbetween(value, valid_range):
+    try:
+        assert len(valid_range) == 2
+    except:
+        raise ValueError("Valid range must be a tuple or list of length 2")
+
+    if (value >= valid_range[0]) and (value < valid_range[1]):
+        result = True
+    else:
+        result = False
+
+    return result
+
+
 def power_spectrum(wave, dim="time"):
     """Convert wavelet ouput to a power spectrum
 
@@ -109,6 +123,7 @@ def wavelet(
     mother="MORLET",
     scaled=False,
     detrend=True,
+    frequency_band=(2, 8),
 ):
     """xarray wrapper for Torrence and Campo wavelet analysis
 
@@ -136,12 +151,17 @@ def wavelet(
         Default is False
     detrend : boolean, optional
         Linearly detrend the input dataset, by default is True
+    frequency_band : tuple, optional
+        Optional frequency band for analysis (e.g. ENSO), by default (2,8)
 
     Returns
     -------
     xarray.DataArray
         n-dim xarray of wavelet transform (period, time)
     """
+
+    # save attributes for use later
+    arr_attrs = arr.attrs
 
     # detrend the dataset
     arr = detrend_array(arr, dim=dim) if detrend is True else arr
@@ -192,29 +212,77 @@ def wavelet(
 
     result = result.assign_coords({"period": period})
 
+    # Save the unscaled power for use later
+    unscaled_power = (np.abs(result)) ** 2
+
+    # empirically-derived reconstruction factor
+    c_delta = 0.776
+
     # Rescale the wavelet coefficents so that the double integral
     # is the total energy (varaiance multiplied by total time)
     if scaled is True:
 
         if mother != "MORLET":
             raise ValueError(
-                "Only the MORLET wavelet base can " + "be scaled in this impementation"
+                "Only the MORLET wavelet base can be scaled in this impementation"
             )
-
-        # empirically-derived reconstruction factor
-        c_delta = 0.776
 
         scale = xr.DataArray(scale, dims=("period"))
         result = result * np.sqrt(dt / (c_delta * scale))
 
-    # Convert to time series of spectral power in each period
-    power = (np.abs(result)) ** 2
-
+    # Create output dataset
     dset_out = xr.Dataset()
-    dset_out["wave"] = result
+    dset_out["wavelet"] = result
+    dset_out["wavelet"].attrs = {"units": "sigma", "long_name": "Wavelet Density"}
+
     dset_out["cone_of_influence"] = xr.DataArray(coi, dims=("time"))
+    dset_out["cone_of_influence"].attrs = {
+        "units": "sub-octave",
+        "long_name": "Cone of Influence",
+    }
+
     dset_out["timeseries"] = arr
-    dset_out["power"] = power
+    dset_out["timeseries"].attrs = arr_attrs
+
+    # Power spectrum
+    dset_out["spectrum"] = power_spectrum(result)
+    dset_out["spectrum"].attrs = {"units": "sigma^2", "long_name": "Spectral Power"}
+
+    # Calculate variance within a specific range
+    if frequency_band is not None:
+        scale_avg = np.tile(period[:, None], (1, len(arr)))
+        scale_avg = np.array(unscaled_power) / scale_avg
+        maskarr = np.array(
+            [1.0 if isbetween(x, frequency_band) else 0.0 for x in scale]
+        )
+        maskarr = np.tile(maskarr[:, None], (1, len(arr)))
+        variance = np.std(arr.values, ddof=1) ** 2
+        scale_avg = variance * dj * dt / c_delta * np.sum(scale_avg * maskarr, axis=0)
+
+        # Autocorrelation of red noise
+        lag1 = 0.72
+        scale_signif = xw.wavelets.wave_signif(
+            variance,
+            dt,
+            scale.values,
+            sigtest=2,
+            lag1=lag1,
+            dof=[frequency_band[0], frequency_band[1]],
+        )
+
+        dset_out["scaled_ts_variance"] = xr.DataArray(scale_avg, dims=("time"))
+        dset_out["scaled_ts_variance"].attrs = {
+            "units": "sigma^2",
+            "long_name": f"{frequency_band[0]}-{frequency_band[1]} Year Scaled Time Series Variance",
+            "significance": scale_signif,
+        }
+
+    # Set coordinte attributes
+    dset_out[dim].attrs = arr[dim].attrs
+    dset_out["period"].attrs = {"units": "years", "long_name": "Spectral Period"}
+
+    # set global attributes
+    dset_out.attrs = kwargs
 
     return dset_out
 
