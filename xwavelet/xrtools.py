@@ -264,7 +264,7 @@ def wavelet(
         scale_signif = xw.wavelets.wave_signif(
             variance,
             dt,
-            scale.values,
+            np.array(scale),
             sigtest=2,
             lag1=lag1,
             dof=[frequency_band[0], frequency_band[1]],
@@ -282,7 +282,17 @@ def wavelet(
     dset_out["period"].attrs = {"units": "years", "long_name": "Spectral Period"}
 
     # set global attributes
-    dset_out.attrs = kwargs
+    dset_out.attrs = {
+        "dt": dt,
+        "pad": pad,
+        "dj": dj,
+        "pow2": pow2,
+        "s0": s0,
+        "mother": mother,
+        "scaled": scaled,
+        "detrend": detrend,
+        "frequency_band": frequency_band,
+    }
 
     return dset_out
 
