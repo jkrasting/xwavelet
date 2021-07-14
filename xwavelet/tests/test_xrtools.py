@@ -1,3 +1,5 @@
+import os
+import matplotlib
 import numpy as np
 import xarray as xr
 from xwavelet.xrtools import (
@@ -8,6 +10,7 @@ from xwavelet.xrtools import (
     wavelet,
     _wrap_wavelet,
 )
+from matplotlib.testing.compare import compare_images
 from xwavelet.classes import Wavelet
 
 dset = xr.open_dataset(
@@ -21,7 +24,7 @@ import pytest
 
 
 def pytest_namespace():
-    return {"wavelet_1": None}
+    return {"wavelet_1": None, "wavelet_obj": None}
 
 
 def test_isbetween():
@@ -55,6 +58,7 @@ def test_timeseries_stats():
 
 def test_wavelet_1():
     result = wavelet(arr)
+    pytest.wavelet_1 = result
     assert isinstance(result, xr.Dataset)
     assert len(result.attrs.keys()) == 9
     assert np.allclose(result.period.sum(), 399.61105775)
@@ -64,7 +68,6 @@ def test_wavelet_1():
     assert np.allclose(
         result.scaled_ts_variance.attrs["significance"], 0.015598932038100413
     )
-    pytest.wavelet_1 = result
 
 
 def test_wavelet_2():
@@ -82,6 +85,26 @@ def test__wrap_wavelet():
     assert np.allclose(np.abs(wave).sum(), 189.519549900900)
     assert np.allclose(coi.sum(), 614.327108389584)
 
-def test_Wavelet()
+
+def test_Wavelet():
     wave = Wavelet(arr)
-    assert wave.dset
+    pytest.wavelet_obj = wave
+    assert wave.dset.equals(pytest.wavelet_1)
+
+
+def test_Wavelet_composite():
+    fig = pytest.wavelet_obj.composite()
+    assert isinstance(fig, matplotlib.figure.Figure)
+    refname = "xwavelet/tests/reference/composite.png"
+    if not os.path.exists(refname):
+        fig.savefig(refname)
+    else:
+        testing_fig = "composite-testing.png"
+        fig.savefig(testing_fig)
+        result = compare_images(refname, testing_fig, 0.5, in_decorator=True)
+        print(result)
+        if result is not None:
+            errmsg = f"Composite figures are different: RMS diff = {result['rms']}"
+            raise ValueError(errmsg)
+        else:
+            os.remove(testing_fig)
