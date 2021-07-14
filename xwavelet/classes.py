@@ -1,18 +1,37 @@
+""" classes for xwavelet """
+
 import numpy as np
 import xarray as xr
 
 import matplotlib.pyplot as plt
 
-import xwavelet as xw
+from . import xrtools
+
 
 class Wavelet:
+    """High-level class to run calculation and generate plots"""
+
     def __init__(self, arr, **kwargs):
-        self.dset = xw.wavelet(arr, **kwargs)
-        self.stats = xw.xrtools.timeseries_stats(self.dset.timeseries)
+        """Initializes class by calculating wavelet transform
+
+        Parameters
+        ----------
+        arr : xarray.DataArray
+            Input time series
+        """
+        self.dset = xrtools.wavelet(arr, **kwargs)
+        self.stats = xrtools.timeseries_stats(self.dset.timeseries)
 
     def spectrum(self, ax=None):
+        """Power spectrum plot
+
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes.axis, optional
+            Existing matplotlib axis to use for plot, by default None
+        """
         if ax is None:
-            fig = plt.figure(figsize=(4.8, 6.4))
+            plt.figure(figsize=(4.8, 6.4))
             ax = plt.subplot(1, 1, 1)
         logperiod = np.log2(self.dset.period)
         plotarr = self.dset.spectrum
@@ -24,8 +43,19 @@ class Wavelet:
         ax.set_yticklabels([str(x) for x in yticks.values])
 
     def density(self, ax=None, cmap="hot_r", add_colorbar=True):
+        """Wavelet density plot
+
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes.axis, optional
+            Existing matplotlib axis to use for plot, by default None
+        cmap : str, optional
+            Matplotlib color map, by default "hot_r"
+        add_colorbar : bool, optional
+            Display colorbar, by default True
+        """
         if ax is None:
-            fig = plt.figure(figsize=(8, 4))
+            plt.figure(figsize=(8, 4))
             ax = plt.subplot(1, 1, 1)
         logperiod = np.log2(self.dset.period)
         levels = np.log2(self.dset.period).values
@@ -54,8 +84,15 @@ class Wavelet:
         ax.set_ylabel(ylabel)
 
     def timeseries(self, ax=None):
+        """Time series plot
+
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes.axis, optional
+            Existing matplotlib axis to use for plot, by default None
+        """
         if ax is None:
-            fig = plt.figure(figsize=(8, 2))
+            plt.figure(figsize=(8, 2))
             ax = plt.subplot(1, 1, 1)
         reference = xr.ones_like(self.dset.timeseries) * self.stats["mean"]
         reference.plot.line(ax=ax, linestyle="dashed", color="k")
@@ -73,8 +110,15 @@ class Wavelet:
         annual.plot.line(ax=ax)
 
     def variance(self, ax=None):
+        """Scaled variance plot
+
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes.axis, optional
+            Existing matplotlib axis to use for plot, by default None
+        """
         if ax is None:
-            fig = plt.figure(figsize=(8, 2))
+            plt.figure(figsize=(8, 2))
             ax = plt.subplot(1, 1, 1)
         reference = (
             xr.ones_like(self.dset.timeseries)
@@ -84,6 +128,19 @@ class Wavelet:
         self.dset.scaled_ts_variance.plot.line()
 
     def composite(self, title=None, subtitle=None):
+        """Multi-panel composite plot
+
+        Parameters
+        ----------
+        title : str, optional
+            Main title heading, by default None
+        subtitle : str, optional
+            Sub title heading, by default None
+
+        Returns
+        -------
+        matplotlib.figure.Figure
+        """
         fig = plt.figure(figsize=(11, 8.5))
         ax1 = plt.subplot2grid((8, 7), (1, 0), colspan=5, rowspan=2)
         ax2 = plt.subplot2grid((8, 7), (3, 0), colspan=5, rowspan=3)

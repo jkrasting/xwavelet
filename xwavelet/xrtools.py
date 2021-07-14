@@ -1,12 +1,10 @@
 """ xarray tools for calling wavelet analysis """
 
-import xarray as xr
-import xwavelet as xw
-import numpy as np
-import cftime
 import warnings
-
+import xarray as xr
+import numpy as np
 from scipy.stats import skew
+from . import wavelets
 
 
 def detrend_array(arr, dim="time", deg=1):
@@ -32,17 +30,26 @@ def detrend_array(arr, dim="time", deg=1):
 
 
 def isbetween(value, valid_range):
+    """Tests if a value is inside a given range
+
+    Parameters
+    ----------
+    value : float or int
+        Numeric value
+    valid_range : tuple
+        Range of values
+
+    Returns
+    -------
+    bool
+        True if value is inside the range
+    """
     try:
         assert len(valid_range) == 2
-    except:
-        raise ValueError("Valid range must be a tuple or list of length 2")
+    except Exception as error:
+        raise ValueError("Valid range must be a tuple or list of length 2") from error
 
-    if (value >= valid_range[0]) and (value < valid_range[1]):
-        result = True
-    else:
-        result = False
-
-    return result
+    return valid_range[0] <= value < valid_range[1]
 
 
 def power_spectrum(wave, dim="time"):
@@ -79,11 +86,11 @@ def infer_time_freq(arr, dim="time"):
     str
         Pandas-like string of inferred time frequency
     """
-    if arr.time.dt.year[1] == (arr.time.dt.year[0] + 1):
+    if arr[dim].dt.year[1] == (arr[dim].dt.year[0] + 1):
         result = "Y"
-    elif arr.time.dt.month[1] == (arr.time.dt.month[0] + 1):
+    elif arr[dim].dt.month[1] == (arr[dim].dt.month[0] + 1):
         result = "M"
-    elif arr.time.dt.day[1] == (arr.time.dt.day[0] + 1):
+    elif arr[dim].dt.day[1] == (arr[dim].dt.day[0] + 1):
         result = "D"
     else:
         result = "unknown"
@@ -261,7 +268,7 @@ def wavelet(
 
         # Autocorrelation of red noise
         lag1 = 0.72
-        scale_signif = xw.wavelets.wave_signif(
+        scale_signif = wavelets.wave_signif(
             variance,
             dt,
             np.array(scale),
@@ -273,7 +280,8 @@ def wavelet(
         dset_out["scaled_ts_variance"] = xr.DataArray(scale_avg, dims=("time"))
         dset_out["scaled_ts_variance"].attrs = {
             "units": "sigma^2",
-            "long_name": f"{frequency_band[0]}-{frequency_band[1]} Year Scaled Time Series Variance",
+            "long_name": f"{frequency_band[0]}-{frequency_band[1]} "
+            + "Year Scaled Time Series Variance",
             "significance": scale_signif,
         }
 
@@ -310,5 +318,7 @@ def _wrap_wavelet(arr, **kwargs):
     numpy.ndarray
         Results of wavelet transform
     """
-    wave, period, scale, coi = xw.wavelets.wavelet(arr, **kwargs)
+    result = wavelets.wavelet(arr, **kwargs)
+    wave = result[0]
+    coi = result[-1]
     return wave, coi
