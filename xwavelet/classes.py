@@ -1,5 +1,6 @@
 """ classes for xwavelet """
 
+import cftime
 import numpy as np
 import xarray as xr
 
@@ -19,8 +20,17 @@ class Wavelet:
         arr : xarray.DataArray
             Input time series
         """
+        timedim = "time"
         self.dset = xrtools.wavelet(arr, **kwargs)
         self.stats = xrtools.timeseries_stats(self.dset.timeseries)
+        self.xlim = (
+            cftime.date2num(
+                self.dset[timedim][0], calendar="noleap", units="days since 2000-01-01"
+            ),
+            cftime.date2num(
+                self.dset[timedim][-1], calendar="noleap", units="days since 2000-01-01"
+            ),
+        )
 
     def spectrum(self, ax=None):
         """Power spectrum plot
@@ -63,18 +73,29 @@ class Wavelet:
         plotarr = np.abs(self.dset.wavelet) ** 2
         plotarr = plotarr.assign_coords({"period": logperiod, "time": plotarr.time})
         plotarr.plot.contourf(
-            ax=ax, levels=levels, cmap=cmap, add_colorbar=add_colorbar
+            ax=ax,
+            levels=levels,
+            cmap=cmap,
+            add_colorbar=add_colorbar,
+            xlim=self.xlim,
         )
         ylabel = ax.get_ylabel()
 
         levels2 = [x * 2.0 for x in levels if x >= 0.0]
-        plotarr.plot.contour(ax=ax, levels=levels2, colors=["k"], linewidths=0.5)
+        plotarr.plot.contour(
+            ax=ax, levels=levels2, colors=["k"], linewidths=0.5, xlim=self.xlim
+        )
 
         coi = self.dset.cone_of_influence
         coi = xr.where(coi <= 0, 1e-20, coi)
         coi = np.log2(coi)
         coi.plot.line(
-            ax=ax, add_legend=False, linewidth=2, linestyle="dashed", color="k"
+            ax=ax,
+            add_legend=False,
+            linewidth=2,
+            linestyle="dashed",
+            color="k",
+            xlim=self.xlim,
         )
         yticks = self.dset.period[0::4]
         ax.set_yticks(np.log2(yticks))
@@ -83,7 +104,7 @@ class Wavelet:
         ax.invert_yaxis()
         ax.set_ylabel(ylabel)
 
-    def timeseries(self, ax=None):
+    def timeseries(self, ax=None, timedim="time"):
         """Time series plot
 
         Parameters
@@ -95,8 +116,10 @@ class Wavelet:
             plt.figure(figsize=(8, 2))
             ax = plt.subplot(1, 1, 1)
         reference = xr.ones_like(self.dset.timeseries) * self.stats["mean"]
-        reference.plot.line(ax=ax, linestyle="dashed", color="k")
-        self.dset.timeseries.plot.line(ax=ax, linewidth=0.5, color="gray")
+        reference.plot.line(ax=ax, linestyle="dashed", color="k", xlim=self.xlim)
+        self.dset.timeseries.plot.line(
+            ax=ax, linewidth=0.5, color="gray", xlim=self.xlim
+        )
         stats = {k: str(np.round(v, 4)) for k, v in self.stats.items()}
         for n, stat in enumerate(stats.items()):
             ax.text(
@@ -107,7 +130,7 @@ class Wavelet:
                 transform=ax.transAxes,
             )
         annual = self.dset.timeseries.rolling({"time": 12}, center=True).mean()
-        annual.plot.line(ax=ax)
+        annual.plot.line(ax=ax, xlim=self.xlim)
 
     def variance(self, ax=None):
         """Scaled variance plot
@@ -124,7 +147,9 @@ class Wavelet:
             xr.ones_like(self.dset.timeseries)
             * self.dset.scaled_ts_variance.attrs["significance"]
         )
-        reference.plot.line(ax=ax, linestyle="dashed", color="k", linewidth=0.5)
+        reference.plot.line(
+            ax=ax, linestyle="dashed", color="k", linewidth=0.5, xlim=self.xlim
+        )
         self.dset.scaled_ts_variance.plot.line()
 
     def composite(self, title=None, subtitle=None):
