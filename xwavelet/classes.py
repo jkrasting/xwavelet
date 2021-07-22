@@ -13,7 +13,7 @@ from . import xrtools
 class Wavelet:
     """High-level class to run calculation and generate plots"""
 
-    def __init__(self, arr, **kwargs):
+    def __init__(self, arr, reference=None, **kwargs):
         """Initializes class by calculating wavelet transform
 
         Parameters
@@ -23,6 +23,7 @@ class Wavelet:
         """
         timedim = "time"
         self.dset = xrtools.wavelet(arr, **kwargs)
+        self.reference = reference
         self.stats = xrtools.timeseries_stats(self.dset.timeseries)
         self.xlim = (
             cftime.date2num(
@@ -45,6 +46,9 @@ class Wavelet:
             Label attribute used in plot legend if present,
             by default None
         """
+
+        reference = self.reference if reference is None else reference
+
         if ax is None:
             plt.figure(figsize=(4.8, 6.4))
             ax = plt.subplot(1, 1, 1)
@@ -73,7 +77,8 @@ class Wavelet:
                 label=label,
             )
 
-        ax.legend(loc=4)
+        if len(reference)>0:
+            ax.legend(loc=4,fontsize=8)
 
         ax.invert_yaxis()
         yticks = self.dset.period[0::4]
@@ -199,6 +204,9 @@ class Wavelet:
         -------
         matplotlib.figure.Figure
         """
+
+        reference = self.reference if reference is None else reference
+
         fig = plt.figure(figsize=(11, 8.5))
         ax1 = plt.subplot2grid((8, 7), (1, 0), colspan=5, rowspan=2)
         ax2 = plt.subplot2grid((8, 7), (3, 0), colspan=5, rowspan=3)
