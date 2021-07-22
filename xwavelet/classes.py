@@ -6,6 +6,7 @@ import xarray as xr
 
 import matplotlib.pyplot as plt
 
+from itertools import cycle
 from . import xrtools
 
 
@@ -32,13 +33,17 @@ class Wavelet:
             ),
         )
 
-    def spectrum(self, ax=None):
+    def spectrum(self, ax=None, reference=None):
         """Power spectrum plot
 
         Parameters
         ----------
         ax : matplotlib.axes.Axes.axis, optional
             Existing matplotlib axis to use for plot, by default None
+        reference: xarray.DataArray, list, optional
+            Additional specrtra to plot. Must have a period axis.
+            Label attribute used in plot legend if present,
+            by default None
         """
         if ax is None:
             plt.figure(figsize=(4.8, 6.4))
@@ -47,10 +52,34 @@ class Wavelet:
         plotarr = self.dset.spectrum
         plotarr = plotarr.assign_coords({"period": logperiod})
         plotarr.plot(ax=ax, y="period")
+        if reference is not None:
+            reference = list(reference) if isinstance(reference, tuple) else reference
+            reference = [reference] if not isinstance(reference, list) else reference
+            lines = ["--", "-.", ":"]
+            linecycler = cycle(lines)
+        else:
+            reference = []
+
+        for x in reference:
+            label = x.attrs["label"] if "label" in x.attrs.keys() else None
+            logperiod = np.log2(x.period)
+            x = x.assign_coords({"period": logperiod})
+            x.plot(
+                ax=ax,
+                y="period",
+                linewidth=0.75,
+                linestyle=next(linecycler),
+                color="gray",
+                label=label,
+            )
+
+        ax.legend(loc=4)
+
         ax.invert_yaxis()
         yticks = self.dset.period[0::4]
         ax.set_yticks(np.log2(yticks))
         ax.set_yticklabels([str(x) for x in yticks.values])
+        ax.set_title("")
 
     def density(self, ax=None, cmap="hot_r", add_colorbar=True):
         """Wavelet density plot
@@ -152,7 +181,7 @@ class Wavelet:
         )
         self.dset.scaled_ts_variance.plot.line()
 
-    def composite(self, title=None, subtitle=None):
+    def composite(self, title=None, subtitle=None, reference=None):
         """Multi-panel composite plot
 
         Parameters
@@ -161,6 +190,10 @@ class Wavelet:
             Main title heading, by default None
         subtitle : str, optional
             Sub title heading, by default None
+        reference: xarray.DataArray, list, optional
+            Additional specrtra to plot. Must have a period axis.
+            Label attribute used in plot legend if present,
+            by default None
 
         Returns
         -------
@@ -174,7 +207,7 @@ class Wavelet:
 
         self.timeseries(ax=ax1)
         self.density(ax=ax2, add_colorbar=False)
-        self.spectrum(ax=ax3)
+        self.spectrum(ax=ax3, reference=reference)
         self.variance(ax=ax4)
 
         plt.subplots_adjust(hspace=0.5, wspace=1.5)
