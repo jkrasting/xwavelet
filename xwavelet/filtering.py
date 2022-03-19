@@ -3,6 +3,7 @@
 import warnings
 import scipy.signal
 import numpy as np
+import xarray as xr
 
 __all__ = ["frequency_filter"]
 
@@ -14,6 +15,51 @@ def _split_time_string(timestring):
     head = timestring[len(tail) :]
     head = head[::-1]
     return int(head), tail
+
+
+def _run_filter(
+    arr,
+    filter_order,
+    cutoff_frequency1,
+    cutoff_frequency2,
+    btype,
+    sampling_frequency,
+    iirf_format,
+):
+    """Internal function for performing the filtering"""
+
+    if str(btype) == "bandpass":
+        cutoff_frequency = (
+            [cutoff_frequency1, cutoff_frequency2]
+            if cutoff_frequency2 is not None
+            else cutoff_frequency1
+        )
+    else:
+        cutoff_frequency = cutoff_frequency1
+
+    iirf = scipy.signal.butter(
+        filter_order,
+        cutoff_frequency,
+        btype=str(btype),
+        fs=sampling_frequency,
+        output=str(iirf_format),
+    )
+
+    if iirf_format == "sos":
+        filtered = scipy.signal.sosfiltfilt(iirf, arr, axis=-1)
+
+    elif iirf_format == "ba":
+        filtered = scipy.signal.filtfilt(*iirf, arr, axis=-1)
+
+    # np.array(filtered)
+
+    return filtered
+
+
+def _wrap_run_filter(
+    arr, filter_order, cutoff_frequency, btype, sampling_frequency, iirf_format
+):
+    return np.apply_along_axis(_run_filter, -1, *args)
 
 
 def frequency_filter(
@@ -118,28 +164,35 @@ def frequency_filter(
     cutoff_frequency = sorted([1.0 / x for x in cutoff_frequency])
     sampling_frequency = 1.0 / sampling_frequency.mean()
 
-    iirf = scipy.signal.butter(
-        filter_order,
-        cutoff_frequency,
-        btype=btype,
-        fs=sampling_frequency,
-        output=iirf_format,
-    )
+    cutoff_frequency1 = cutoff_frequency[0]
+    cutoff_frequency2 = cutoff_frequency[1] if len(cutoff_frequency) == 2 else None
 
-    if iirf_format == "sos":
-        filtered = scipy.signal.sosfilt(iirf, arr.values)
+    if len(arr.coords) > 1:
+        filtered = xr.apply_ufunc(
+            _run_filter,
+            arr,
+            filter_order,
+            cutoff_frequency1,
+            cutoff_frequency2,
+            btype,
+            sampling_frequency,
+            iirf_format,
+            dask="parallelized",
+            input_core_dims=[[dim], [], [], [], [], [], []],
+            output_core_dims=[[dim]],
+            output_dtypes=[arr.dtype],
+        )
+    else:
+        result = _run_filter(
+            arr.values,
+            filter_order,
+            cutoff_frequency1,
+            cutoff_frequency2,
+            btype,
+            sampling_frequency,
+            iirf_format,
+        )
+        filtered = arr.copy()
+        filtered.values = result
 
-    elif iirf_format == "ba":
-        filtered = scipy.signal.filtfilt(*iirf, arr.values)
-
-    # ensure the filtered results are a NumPy array
-    filtered = np.array(filtered)
-
-    # this might not be necessary, need to confirm
-    filtered = filtered.transpose()
-
-    # make a copy of the input xarray and replace with filtered values
-    result = arr.copy()
-    result.values = filtered
-
-    return result
+    return filtered
