@@ -56,12 +56,6 @@ def _run_filter(
     return filtered
 
 
-def _wrap_run_filter(
-    arr, filter_order, cutoff_frequency, btype, sampling_frequency, iirf_format
-):
-    return np.apply_along_axis(_run_filter, -1, *args)
-
-
 def frequency_filter(
     arr,
     cutoff,
@@ -115,7 +109,6 @@ def frequency_filter(
     """
 
     # get the sampling frequency of the data
-
     time_values = arr[dim]
     sampling_frequency = [
         time_values[x] - time_values[x - 1] for x in range(1, len(time_values))
@@ -123,7 +116,6 @@ def frequency_filter(
 
     # xarray returns the time coordinate in units of nanoseconds; confirm
     # this is true and convert units to seconds
-
     try:
         assert (
             str(sampling_frequency[0].values.dtype) == "timedelta64[ns]"
@@ -143,14 +135,13 @@ def frequency_filter(
     # timeseries. This is not true for monthly data, for example, when
     # the number of days per month varies. In this instance, a mean
     # sampling frequency is used.
-
     if (len(set(sampling_frequency)) > 1) and suppress_warnings is False:
         warnings.warn("Irregular sampling frequency detected - using an average value.")
 
-    # convert the cutoff frequency to seconds
-
+    # convert cutoff frequencies to a list if they are not already
     cutoff = [cutoff] if not isinstance(cutoff, list) else cutoff
 
+    # convert the cutoff frequency to seconds
     cutoff_frequency = np.array(
         [
             np.timedelta64(*_split_time_string(x))
@@ -164,35 +155,26 @@ def frequency_filter(
     cutoff_frequency = sorted([1.0 / x for x in cutoff_frequency])
     sampling_frequency = 1.0 / sampling_frequency.mean()
 
+    # separate cutoff frequencies into two parts; xarray connection
+    # to dask must pass them independently otherwise it assumes
+    # they have specific dimensionality
     cutoff_frequency1 = cutoff_frequency[0]
     cutoff_frequency2 = cutoff_frequency[1] if len(cutoff_frequency) == 2 else None
 
-    if len(arr.coords) > 1:
-        filtered = xr.apply_ufunc(
-            _run_filter,
-            arr,
-            filter_order,
-            cutoff_frequency1,
-            cutoff_frequency2,
-            btype,
-            sampling_frequency,
-            iirf_format,
-            dask="parallelized",
-            input_core_dims=[[dim], [], [], [], [], [], []],
-            output_core_dims=[[dim]],
-            output_dtypes=[arr.dtype],
-        )
-    else:
-        result = _run_filter(
-            arr.values,
-            filter_order,
-            cutoff_frequency1,
-            cutoff_frequency2,
-            btype,
-            sampling_frequency,
-            iirf_format,
-        )
-        filtered = arr.copy()
-        filtered.values = result
+    # apply the filtering function
+    filtered = xr.apply_ufunc(
+        _run_filter,
+        arr,
+        filter_order,
+        cutoff_frequency1,
+        cutoff_frequency2,
+        btype,
+        sampling_frequency,
+        iirf_format,
+        dask="parallelized",
+        input_core_dims=[[dim], [], [], [], [], [], []],
+        output_core_dims=[[dim]],
+        output_dtypes=[arr.dtype],
+    )
 
     return filtered
