@@ -1,0 +1,52 @@
+[build-system]
+requires = [ "setuptools>=41", "wheel", "setuptools-git-versioning"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xwavelet"
+description = "An xarray-based implementation of wavelet analysis"
+dynamic = ["version"]
+authors = [
+    {name = "John Krasting", email="john.krasting@noaa.gov"}
+]
+license = {file = "LICENSE.txt"}
+readme = "README.md"
+requires-python = ">=3.8"
+keywords = ["xarray", "wavelet", "spectral analysis"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+]
+dependencies = [
+    "matplotlib",
+    "numpy",
+    "scipy",
+    "xarray",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+]
+
+[project.urls]
+homepage = "https://github.com/jkrasting/xwavelet"
+documentation = "https://github.com/jkrasting/xwavelet"
+repository = "https://github.com/jkrasting/xwavelet"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools-git-versioning]
+enabled = true
+template = "{tag}"
+dev_template = "{tag}"
+dirty_template = "{tag}"
+starting_version = "0.0.1" # this is a backup for pip <= 22.0 where git-versioning doesn't work
+
+[tool.dynamic]
+version = "placeholder" # this is a placeholder for the version pulled with git-versioning
